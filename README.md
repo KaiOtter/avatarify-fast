@@ -29,7 +29,7 @@ avatarify-python need face-alligment library.
     pip install -r requirements.txt
     python setup.py install
 
-## Runnig Steps
+## Running Steps
 1. run extract_audio.sh to gain soundtrack mp3 file.
 2. run demo.py with re-write params in local path.
 3. run merge_audio.sh to merge soundtrack and video.
