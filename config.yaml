@@ -7,8 +7,12 @@ path_params:
   vox_ckpt: '/workspace/face/code/avatarify-python/vox-adv-cpk.pth.tar'
   swap_ckpt:  '/workspace/face/code/motion-cosegmentation/weights/vox-5segments.pth.tar'
   swap_config: './swap_config/vox-256-sem-5segments.yaml'
-  swap_index: [1, 2]
-#  5 is hair region
+  swap_index: [1, 2] #  5 is hair region. I don't want.
+
+post_process:
+  color_offset: True
+  color_offset_factor: 0.85 # empirical value
+
 
 dataset_params:
   root_dir: data/vox-png

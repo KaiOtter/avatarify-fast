@@ -19,12 +19,15 @@ from tqdm import tqdm
 import time
 import imageio
 
-
 class Pipeline:
     def __init__(self, config_path, image_path):
         assert os.path.exists(image_path)
         with open(config_path) as f:
-            self.path_config = yaml.load(f, Loader=yaml.FullLoader)['path_params']
+            content = yaml.load(f, Loader=yaml.FullLoader)
+            self.path_config = content['path_params']
+            self.color_offset = content['post_process']['color_offset']
+            self.color_factor = content['post_process']['color_offset_factor']
+
         self.ckpt_path = self.path_config['vox_ckpt']
         self.predictor = PredictorLocal(config_path, self.ckpt_path, device='cuda')
 
@@ -109,8 +112,6 @@ class Pipeline:
             print(e)
             return None
 
-        # cv2.imwrite("/workspace/face/data/my_golden_wheel/01150_crop.jpg", crop_image)
-
         crop_rgb = cv2.cvtColor(crop_image, cv2.COLOR_BGR2RGB)
 
         motion_output = self.predictor.predict(crop_rgb)
@@ -122,8 +123,6 @@ class Pipeline:
         swap_output = self.face_swap.forward(swap_src, swap_tar)
         swap_output = cv2.cvtColor(swap_output, cv2.COLOR_RGB2BGR)
 
-        # cv2.imwrite("/workspace/face/data/my_golden_wheel/01150_gan.jpg", swap_output)
-
         swap_output = cv2.resize(swap_output, (crop_x1 - crop_x0, crop_y1 - crop_y0))
 
         old_patch = bgr_image[crop_y0:crop_y1, crop_x0:crop_x1]
@@ -133,77 +132,77 @@ class Pipeline:
 
         lmks_part1 = lmks[:17]
 
-        lmks_part2 = lmks[17:27]
-        _top = min(lmks[19, 1] - half_nose, lmks[24, 1] - half_nose)
-        lmks_part2[:, 1] = _top
+        # lmks_part2 = lmks[17:27]
+        # _top = min(lmks[19, 1] - half_nose, lmks[24, 1] - half_nose)
+        # lmks_part2[:, 1] = _top
 
-        lmks_part2 = lmks_part2.tolist()
-        lmks_part2.reverse()
+        # lmks_part2 = lmks_part2.tolist()
+        # lmks_part2.reverse()
 
         left_idx = lmks_part1[:, 0].argmin()
         left, bottom0 = lmks_part1[left_idx]
         right_idx = lmks_part1[:, 0].argmax()
         right, bottom1 = lmks_part1[right_idx]
 
-        new_lmks = lmks_part1.tolist() + lmks_part2
-        # lmks_part1[:7][0] -= half_nose
-        # lmks_part1[8:][0] += half_nose
-        # new_lmks = new_lmks.tolist()
-        # lmks_part1.append([right, 0])
-        # lmks_part1.append([left, 0])
-
-        # new_lmks = lmks_part1
+        # new_lmks = lmks_part1.tolist() + lmks_part2
+        new_lmks = lmks_part1.tolist()
 
         new_lmks = np.array(new_lmks).astype(np.int)
         mask = np.zeros([crop_y1 - crop_y0, crop_x1 - crop_x0], dtype=np.uint8)
 
         old_patch = old_patch.astype(np.float32)
 
-        above_eye_area = [[left, 0], [right, 0], [right, bottom1],
+        above_eye_area = [[left, shift_y0], [right, shift_y0], [right, bottom1],
                           [left, bottom0]]
         above_eye_area = np.array(above_eye_area, dtype=np.int)
         cv2.fillPoly(mask, [new_lmks], 255)
-        mask2 = mask.copy()
-        cv2.fillPoly(mask2, [above_eye_area], 255)
-        mask2 = mask2 - mask
+        cv2.fillPoly(mask, [above_eye_area], 255)
+        # mask2 = mask.copy()
+        # cv2.fillPoly(mask2, [above_eye_area], 255)
+        # mask2 = mask2 - mask
         # cv2.imwrite("/workspace/face/data/my_golden_wheel/debug6_mask.jpg", mask2)
 
         new_patch = old_patch.copy()
         thre1 = mask > 127
-        # new_patch[thre] = swap_output[thre]
+        #
 
-        H_old = old_patch[thre1]
-        old_median = []
-        old_mean = []
-        for t in range(3):
-            zz = H_old[..., t]
-            old_mean.append(zz.mean())
-            # zz.sort()
-            # old_median.append(zz[len(zz) // 2])
+        if self.color_offset:
+            H_old = old_patch[thre1]
+            old_median = []
+            old_mean = []
+            for t in range(3):
+                zz = H_old[..., t]
+                old_mean.append(zz.mean())
+                # zz.sort()
+                # old_median.append(zz[len(zz) // 2])
 
-        H_new = swap_output[thre1]
-        new_median = []
-        new_mean = []
-        for t in range(3):
-            zz = H_new[..., t]
-            new_mean.append(zz.mean())
-            # zz.sort()
-            # new_median.append(zz[len(zz) // 2])
+            H_new = swap_output[thre1]
+            new_median = []
+            new_mean = []
+            for t in range(3):
+                zz = H_new[..., t]
+                new_mean.append(zz.mean())
+                # zz.sort()
+                # new_median.append(zz[len(zz) // 2])
 
-        # better than using
-        mean_diff_bgr = [(a - b) for a, b in zip(new_mean, old_mean)]
-        mean_diff_bgr = np.array(mean_diff_bgr, dtype=np.int)
+            # better than using
+            mean_diff_bgr = [(a - b) * self.color_factor for a, b in zip(new_mean, old_mean)]
+            mean_diff_bgr = np.array(mean_diff_bgr, dtype=np.int)
 
-        # median_dif_bgr = [a - b for a, b in zip(new_median, old_median)]
-        # median_diff_bgr = np.array(mid_dif_bgr, dtype=np.int)
+            # median_dif_bgr = [a - b for a, b in zip(new_median, old_median)]
+            # median_diff_bgr = np.array(mid_dif_bgr, dtype=np.int)
 
-        tmp = swap_output.copy()
-        tmp = tmp.astype(np.int)
-        tmp -= mean_diff_bgr
-        tmp = np.clip(tmp, 0, 255).astype(np.uint8)
-        new_patch[thre1] = tmp[thre1]
-        thre2 = mask2 > 127
-        new_patch[thre2] = old_patch[thre2]
+            tmp = swap_output.copy()
+            tmp = tmp.astype(np.int)
+            tmp -= mean_diff_bgr
+            tmp = np.clip(tmp, 0, 255).astype(np.uint8)
+            new_patch[thre1] = tmp[thre1]
+
+        else:
+            new_patch[thre1] = swap_output[thre1]
+
+        # thre2 = mask2 > 127
+        # new_patch[thre2] = old_patch[thre2]
 
         # contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         #
@@ -219,10 +218,7 @@ class Pipeline:
         # cv2.imwrite("/workspace/face/data/my_golden_wheel/debug6_patch2_mean.jpg", new_patch.astype(np.uint8))
         bgr_image[crop_y0:crop_y1, crop_x0:crop_x1] = new_patch.astype(np.uint8)
 
-        # bgr_image[crop_y0:crop_y1, crop_x0:crop_x1] = swap_output
-
         return bgr_image
-
 
 def make_video(fps, src_dir, work_dir, save):
     '''

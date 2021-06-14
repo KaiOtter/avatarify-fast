@@ -1,11 +1,13 @@
 # avatarify-fast
 One-click video face-swap. This is a pure python scripts without any GUI. It's based on avatarify-python and uses face landmarks lib to implement a pipeline for processing frames automaticly.
 
-# I merge code from:
+## I merge code from:
 https://github.com/alievk/avatarify-python  
 https://github.com/AliaksandrSiarohin/motion-cosegmentation  
 https://github.com/ainrichman/Peppa-Facial-Landmark-PyTorch  
 
+## How Fast?
+12fps!! with TITAN X (Pascal)
 
 ## Requirements
 pytorch  
@@ -28,9 +30,16 @@ avatarify-python need face-alligment library.
     python setup.py install
 
 ## Runnig Steps
-#### 1. run extract_audio.sh to gain soundtrack mp3 file.
-#### 2. run demo.py with re-write params in local path.
-#### 3. run merge_audio.sh to merge soundtrack and video.
+1. run extract_audio.sh to gain soundtrack mp3 file.
+2. run demo.py with re-write params in local path.
+3. run merge_audio.sh to merge soundtrack and video.
+
+##TODO
+- [ ] A better face swap model which cases to less color shift.
+- [ ] Or, maybe a better landmark model which contains brow.
+- [ ] Corner case process, like with cap/hat, large scale head pose, etc.
+- [ ] Maybe we need a face recognition to locate the specific person in multi-persons scene.
+
 
 
 
