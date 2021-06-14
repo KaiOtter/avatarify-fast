@@ -34,7 +34,7 @@ avatarify-python need face-alligment library.
 2. run demo.py with re-write params in local path.
 3. run merge_audio.sh to merge soundtrack and video.
 
-##TODO
+## TODO
 - [ ] A better face swap model which cases to less color shift.
 - [ ] Or, maybe a better landmark model which contains brow.
 - [ ] Corner case process, like with cap/hat, large scale head pose, etc.
